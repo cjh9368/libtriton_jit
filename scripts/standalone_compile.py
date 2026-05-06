@@ -7,7 +7,7 @@ from typing import List, Tuple, Union
 
 # NPU and MTGPU require this before importing triton
 backend_env = os.environ.get("TRITON_JIT_BACKEND", "").upper()
-if backend_env in ["NPU", "MTGPU"]:
+if backend_env in ["NPU", "MTGPU", "MACA"]:
     os.environ["TORCH_DEVICE_BACKEND_AUTOLOAD"] = "0"
 
 import torch  # noqa: E402
@@ -274,11 +274,13 @@ def _compile_a_kernel(
         attrs = {(k,): [["tt.divisibility", 16]] for k, v in hints.items() if v == 16}
     elif triton_version.major == 3 and triton_version.minor == 5:
         attrs = {(k,): [["tt.divisibility", 16]] for k, v in hints.items() if v == 16}
+    elif triton_version.major == 3 and triton_version.minor == 6:
+        attrs = {(k,): [["tt.divisibility", 16]] for k, v in hints.items() if v == 16}
     else:
         raise RuntimeError(
             "Triton may change APIs, we cannot ensure compatibility here now. "
             "You can goto https://github.com/flagos-ai/libtriton_jit to raise an issue "
-            "about supporting your triton version. Triton 3.1/3.2/3.3/3.4/3.5 are supported now."
+            "about supporting your triton version. Triton 3.1/3.2/3.3/3.4/3.5/3.6 are supported now."
         )
 
     # integer 1 in value, but the corresponding ArgType in static signature is not constexpr are added into constants
@@ -290,7 +292,7 @@ def _compile_a_kernel(
             constants[i] = None
             signature_without_spec[i] = "constexpr"
 
-    if Version("3.1.0") <= triton_version < Version("3.2.0"):
+    if Version("3.0.0") <= triton_version < Version("3.2.0"):
         src = triton.compiler.ASTSource(
             fn=fn,
             constants=constants,
@@ -338,8 +340,8 @@ def _compile_a_kernel(
 
     # STEP3: ast source, target, compile options (backend-specific)
     backend = get_backend()
-    if backend in ["NPU", "MUSA", "MTGPU"]:
-        # NPU/MUSA/MTGPU: no device context manager
+    if backend in ["NPU", "MUSA", "MTGPU", "MACA"]:
+        # NPU/MUSA/MTGPU/MACA: no CUDA device context manager
         # Note: MTGPU is the Triton backend name for MUSA (Moore Threads GPU)
         target = triton.runtime.driver.active.get_current_target()
         ccinfo = triton.compile(src, target=target, options=opts)

@@ -14,6 +14,8 @@
 #include "acl/acl.h"
 #elif defined(BACKEND_MUSA)
 #include <musa.h>
+#elif defined(BACKEND_MACA)
+#include <mcr/mc_runtime.h>
 #else
 #include "cuda.h"
 #endif
@@ -147,6 +149,21 @@ inline void __checkMusaErrors(MUresult code, const char* file, const int line) {
             line,
             error_string);
     throw std::runtime_error(error_string);
+  }
+}
+#elif defined(BACKEND_MACA)
+#define checkMacaErrors(err) __checkMacaErrors(err, __FILE__, __LINE__)
+
+inline void __checkMacaErrors(mcError_t code, const char* file, const int line) {
+  if (code != mcSuccess) {
+    const char* error_string = mcGetErrorString(code);
+    fprintf(stderr,
+            "MACA Runtime API error = %04d from file <%s>, line %i. Detail: <%s>\n",
+            code,
+            file,
+            line,
+            error_string);
+    throw std::runtime_error(error_string ? error_string : "Unknown MACA error");
   }
 }
 #else

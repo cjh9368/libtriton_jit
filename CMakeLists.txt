@@ -3,24 +3,38 @@ cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
 # ==============================================================================
 # Backend Selection (must be before project())
 # ==============================================================================
-set(BACKEND "CUDA" CACHE STRING "Target backend: CUDA, IX, MUSA, or NPU")
-set_property(CACHE BACKEND PROPERTY STRINGS "CUDA" "IX" "MUSA" "NPU")
+set(BACKEND "CUDA" CACHE STRING "Target backend: CUDA, IX, MUSA, MACA, or NPU")
+set_property(CACHE BACKEND PROPERTY STRINGS "CUDA" "IX" "MUSA" "MACA" "NPU")
 
-if(NOT BACKEND MATCHES "^(CUDA|IX|MUSA|NPU)$")
-    message(FATAL_ERROR "Invalid BACKEND: ${BACKEND}. Must be CUDA, IX, MUSA, or NPU")
+if(NOT BACKEND MATCHES "^(CUDA|IX|MUSA|MACA|NPU)$")
+    message(FATAL_ERROR "Invalid BACKEND: ${BACKEND}. Must be CUDA, IX, MUSA, MACA, or NPU")
 endif()
 message(STATUS "Building with backend: ${BACKEND}")
 
-# Project definition (NPU and MUSA don't need CUDA language)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
+
+if(BACKEND STREQUAL "MACA")
+    set(MACA_PATH "$ENV{MACA_PATH}" CACHE PATH "MACA SDK root")
+    if(NOT MACA_PATH)
+        set(MACA_PATH "/opt/maca")
+    endif()
+    set(USE_MACA ON CACHE BOOL "Use MACA compatibility path for PyTorch CMake" FORCE)
+    list(PREPEND CMAKE_MODULE_PATH "${MACA_PATH}/tools/cu-bridge/cmake_module/maca")
+    include("${MACA_PATH}/tools/cu-bridge/cmake_module/maca/FindCUDA/select_compute_arch.cmake")
+
+    set(ENV{MACA_PATH} "${MACA_PATH}")
+endif()
+
+# Project definition (NPU, MUSA, and MACA don't need CUDA language)
 if(BACKEND STREQUAL "NPU")
     project(TritonJIT LANGUAGES CXX VERSION 0.1.0)
 elseif(BACKEND STREQUAL "MUSA")
     project(TritonJIT LANGUAGES CXX VERSION 0.1.0)
+elseif(BACKEND STREQUAL "MACA")
+    project(TritonJIT LANGUAGES CXX VERSION 0.1.0)
 else()
     project(TritonJIT LANGUAGES CUDA CXX VERSION 0.1.0)
 endif()
-
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
 # ==============================================================================
 # Compile Definitions for Backend
@@ -33,6 +47,8 @@ elseif(BACKEND STREQUAL "NPU")
     add_compile_definitions(BACKEND_NPU)
 elseif(BACKEND STREQUAL "MUSA")
     add_compile_definitions(BACKEND_MUSA)
+elseif(BACKEND STREQUAL "MACA")
+    add_compile_definitions(BACKEND_MACA USE_MACA)
 endif()
 
 # String macro for Python runtime
@@ -50,7 +66,7 @@ add_compile_definitions(BACKEND_NAME="${TRITON_BACKEND_NAME}")
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-if(NOT (BACKEND STREQUAL "NPU" OR BACKEND STREQUAL "MUSA"))
+if(NOT (BACKEND STREQUAL "NPU" OR BACKEND STREQUAL "MUSA" OR BACKEND STREQUAL "MACA"))
     set(CMAKE_CUDA_STANDARD 17)
 endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -114,6 +130,12 @@ message(STATUS "Python site-packages: ${Python_SITELIB}")
 
 find_package(Torch MODULE REQUIRED)
 
+if(BACKEND STREQUAL "MACA" AND DEFINED ENV{CUDA_PATH} AND EXISTS "$ENV{CUDA_PATH}/bin/nvcc")
+    set(CMAKE_LINKER "$ENV{CUDA_PATH}/bin/nvcc")
+    set(CMAKE_CXX_LINK_EXECUTABLE "<CMAKE_LINKER> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+    set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_LINKER> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+endif()
+
 # Find Intel ITT Notify library (required by PyTorch)
 # Get conda prefix from Python executable path
 get_filename_component(PYTHON_BIN_DIR ${Python_EXECUTABLE} DIRECTORY)
@@ -147,6 +169,8 @@ elseif(BACKEND STREQUAL "NPU")
     include(BackendNPU)
 elseif(BACKEND STREQUAL "MUSA")
     include(BackendMUSA)
+elseif(BACKEND STREQUAL "MACA")
+    include(BackendMACA)
 endif()
 
 # ==============================================================================

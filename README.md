@@ -198,7 +198,7 @@ Their pre-packaged compilers and standard libraries can often lead to conflicts 
 
 ```shell
 # activate the Python virtualenv (optional)
-pip install "torch>=2.5" "triton>=3.1.0,<3.4.0" "cmake" "ninja" "packaging" "pybind11" "numpy"
+pip install "torch>=2.5" "triton>=3.1.0,<3.7.0" "cmake" "ninja" "packaging" "pybind11" "numpy"
 ```
 
 ### Configure & Generate the Build System
@@ -217,9 +217,19 @@ cmake -S . -B build/ -DPython_ROOT="$(which python)/../.." -DBACKEND=MUSA
 
 # IX (Tianshu)
 cmake -S . -B build/ -DPython_ROOT="$(which python)/../.." -DBACKEND=IX
+
+# MACA (MetaX)
+export MACA_PATH=${MACA_PATH:-/opt/maca}
+export CUCC_PATH=$MACA_PATH/tools/cu-bridge
+export PATH=$CUCC_PATH/tools:$PATH
+export CUCC_CMAKE_ENTRY=2
+cmake_maca -S . -B build-maca -G Ninja -DBACKEND=MACA \
+  -DPython_EXECUTABLE="$(which python)" \
+  -DCMAKE_PREFIX_PATH="$(python -c 'import torch; print(torch.utils.cmake_prefix_path)')"
 ```
 
 You can also specify build type via `-DCMAKE_BUILD_TYPE` and the install prefix using `-DCMAKE_INSTALL_PREFIX`.
+For MACA builds configured with `-G Ninja`, build with `ninja_maca -C build-maca`; use `make_maca` if you configure with Makefiles.
 
 ### Build
 

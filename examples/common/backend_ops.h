@@ -17,6 +17,9 @@
 #endif
 #elif defined(BACKEND_MUSA)
 #include <musa_runtime.h>
+#elif defined(BACKEND_MACA)
+#include <mcr/mc_runtime.h>
+#include "c10/cuda/CUDAStream.h"
 #else
 #include "c10/cuda/CUDAStream.h"
 #endif
@@ -28,6 +31,8 @@ namespace triton_jit::ops {
 using RawStream = aclrtStream;
 #elif defined(BACKEND_MUSA)
 using RawStream = musaStream_t;
+#elif defined(BACKEND_MACA)
+using RawStream = mcStream_t;
 #else
 using RawStream = CUstream;
 #endif
@@ -42,6 +47,8 @@ inline RawStream get_device_stream([[maybe_unused]] const at::Tensor& t) {
 #endif
 #elif defined(BACKEND_MUSA)
   return nullptr;
+#elif defined(BACKEND_MACA)
+  return reinterpret_cast<mcStream_t>(c10::cuda::getCurrentCUDAStream(t.device().index()).stream());
 #else
   return static_cast<CUstream>(c10::cuda::getCurrentCUDAStream(t.device().index()).stream());
 #endif

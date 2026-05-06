@@ -130,3 +130,8 @@ template class triton_jit::TritonJITFunctionImpl<triton_jit::IxBackend>;
 #include "triton_jit/backends/musa_backend.h"
 template class triton_jit::TritonJITFunctionImpl<triton_jit::MusaBackend>;
 #endif
+
+#ifdef BACKEND_MACA
+#include "triton_jit/backends/maca_backend.h"
+template class triton_jit::TritonJITFunctionImpl<triton_jit::MacaBackend>;
+#endif
